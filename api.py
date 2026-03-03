@@ -60,7 +60,11 @@ def api_get(path: str, params: dict = None) -> dict | list | None:
 
 
 def api_post(path: str, data: dict) -> dict | None:
-    """Make authenticated POST request with retry."""
+    """Make authenticated POST request with retry.
+
+    Returns parsed JSON on success, a dict with 'error' and 'status_code'
+    keys on 409 (duplicate bid), or None on other failures.
+    """
     try:
         r = _request_with_retry(
             "POST", f"{API_BASE}{path}",
@@ -69,7 +73,12 @@ def api_post(path: str, data: dict) -> dict | None:
         r.raise_for_status()
         return r.json()
     except requests.exceptions.HTTPError as e:
-        log.error(f"POST {path} failed: {e.response.status_code} {e.response.text[:200]}")
+        status = e.response.status_code
+        body = e.response.text[:200]
+        if status == 409:
+            log.debug(f"POST {path}: 409 duplicate bid")
+            return {"error": "duplicate", "status_code": 409}
+        log.error(f"POST {path} failed: {status} {body}")
         return None
     except Exception as e:
         log.error(f"POST {path} failed: {e}")

@@ -296,6 +296,20 @@ def place_bid(job: dict, state: dict) -> bool:
         state["total_bids"] += 1
         save_state(state)
         return True
+    elif result and result.get("error") == "duplicate":
+        # 409: we already bid on this job — record it so we don't retry
+        log.info(f"  [DUP] Already bid on '{job.get('title', '')[:50]}' — recording to skip")
+        state["bids_placed"][job_id] = {
+            "bid_id": "duplicate",
+            "amount": bid_amount,
+            "title": job.get("title", ""),
+            "category": category,
+            "match_score": match_score,
+            "status": "duplicate",
+            "placed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        save_state(state)
+        return False
     else:
         log.warning(f"  [FAIL] Bid failed on {job_id}")
         return False
